@@ -25,15 +25,23 @@
 #include "usart.h"
 #include "usb_host.h"
 #include "gpio.h"
+#include "string.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+	char *user_data = "The application is running\r\n";
+	#define TRUE 1
+	#define FALSE 0
+	uint8_t data_buffer[100];
+	uint8_t recvd_data;
+	uint32_t count=0;
+	uint8_t reception_complete = FALSE;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+	GPIO_TypeDef Button;
+	uint8_t convert_to_capital(uint8_t data);
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -54,7 +62,6 @@
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 void MX_USB_HOST_Process(void);
-
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -98,7 +105,7 @@ int main(void)
   MX_USB_HOST_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  HAL_UART_Receive_IT(&huart2,&recvd_data,1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -107,9 +114,15 @@ int main(void)
   {
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
-
-    /* USER CODE BEGIN 3 */
+	if(HAL_GPIO_ReadPin(GPIOA,  GPIO_PIN_0))
+	{
+		HAL_Delay(500);
+		HAL_UART_Transmit(&huart2,(uint8_t*)user_data,strlen(user_data) ,HAL_MAX_DELAY);
+		HAL_UART_Receive_IT(&huart2,&recvd_data,1);
+	}
   }
+  /* USER CODE BEGIN 3 */
+
   /* USER CODE END 3 */
 }
 
@@ -173,6 +186,35 @@ void Error_Handler(void)
   {
   }
   /* USER CODE END Error_Handler_Debug */
+}
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+
+	 if(recvd_data == '\r')
+	 {
+		 reception_complete = TRUE;
+		 data_buffer[count++]='\r';data_buffer[count++]='\n';
+		 HAL_UART_Transmit(huart,data_buffer,count,HAL_MAX_DELAY);
+		 count=0;
+	 }
+	 else
+	 {
+		 data_buffer[count++] = convert_to_capital(recvd_data);
+		 HAL_UART_Receive_IT(&huart2,&recvd_data,1);
+	 }
+
+}
+
+
+uint8_t convert_to_capital(uint8_t data)
+{
+	if( data >= 'a' && data <= 'z')
+	{
+		data = data - ( 'a'- 'A');
+	}
+
+	return data;
+
 }
 
 #ifdef  USE_FULL_ASSERT
